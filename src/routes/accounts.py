@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import cast
 
-from fastapi import APIRouter, Depends, status, HTTPException
+from fastapi import APIRouter, Depends, status, HTTPException, BackgroundTasks
 from sqlalchemy import select, delete
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -68,6 +68,8 @@ router = APIRouter()
 async def register_user(
         user_data: UserRegistrationRequestSchema,
         db: AsyncSession = Depends(get_db),
+        background_tasks: BackgroundTasks = BackgroundTasks(),
+        email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
 ) -> UserRegistrationResponseSchema:
     """
     Endpoint for user registration.
@@ -120,6 +122,17 @@ async def register_user(
 
         await db.commit()
         await db.refresh(new_user)
+
+        # Send activation email
+        activation_link = (
+            f"http://127.0.0.1/api/v1/accounts/activate/"  # noqa: E231
+            f"?email={new_user.email}&token={activation_token.token}"
+        )
+        background_tasks.add_task(
+            email_sender.send_activation_email,
+            str(new_user.email),
+            activation_link
+        )
     except SQLAlchemyError as e:
         await db.rollback()
         raise HTTPException(
@@ -164,6 +177,8 @@ async def register_user(
 async def activate_account(
         activation_data: UserActivationRequestSchema,
         db: AsyncSession = Depends(get_db),
+        background_tasks: BackgroundTasks = BackgroundTasks(),
+        email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
 ) -> MessageResponseSchema:
     """
     Endpoint to activate a user's account.
@@ -218,6 +233,14 @@ async def activate_account(
     await db.delete(token_record)
     await db.commit()
 
+    # Send activation complete email
+    login_link = "http://127.0.0.1/api/v1/accounts/login/"
+    background_tasks.add_task(
+        email_sender.send_activation_complete_email,
+        str(user.email),
+        login_link
+    )
+
     return MessageResponseSchema(message="User account activated successfully.")
 
 
@@ -234,6 +257,8 @@ async def activate_account(
 async def request_password_reset_token(
         data: PasswordResetRequestSchema,
         db: AsyncSession = Depends(get_db),
+        background_tasks: BackgroundTasks = BackgroundTasks(),
+        email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
 ) -> MessageResponseSchema:
     """
     Endpoint to request a password reset token.
@@ -262,6 +287,18 @@ async def request_password_reset_token(
     reset_token = PasswordResetTokenModel(user_id=cast(int, user.id))
     db.add(reset_token)
     await db.commit()
+    await db.refresh(reset_token)
+
+    # Send password reset email
+    reset_link = (
+        f"http://127.0.0.1/api/v1/accounts/reset-password/complete/"  # noqa: E231
+        f"?email={user.email}&token={reset_token.token}"
+    )
+    background_tasks.add_task(
+        email_sender.send_password_reset_email,
+        str(user.email),
+        reset_link
+    )
 
     return MessageResponseSchema(
         message="If you are registered, you will receive an email with instructions."
@@ -314,6 +351,8 @@ async def request_password_reset_token(
 async def reset_password(
         data: PasswordResetCompleteRequestSchema,
         db: AsyncSession = Depends(get_db),
+        background_tasks: BackgroundTasks = BackgroundTasks(),
+        email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
 ) -> MessageResponseSchema:
     """
     Endpoint for resetting a user's password.
@@ -375,6 +414,14 @@ async def reset_password(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while resetting the password."
         )
+
+    # Send password reset complete email
+    login_link = "http://127.0.0.1/api/v1/accounts/login/"
+    background_tasks.add_task(
+        email_sender.send_password_reset_complete_email,
+        str(user.email),
+        login_link
+    )
 
     return MessageResponseSchema(message="Password reset successfully.")
 
