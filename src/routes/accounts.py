@@ -123,10 +123,7 @@ async def register_user(
         await db.commit()
         await db.refresh(new_user)
 
-        activation_link = (
-            f"http://127.0.0.1/api/v1/accounts/activate/"  # noqa: E231
-            f"?email={new_user.email}&token={activation_token.token}"
-        )
+        activation_link = f"http://127.0.0.1/api/v1/accounts/activate?token={activation_token.token}"
         background_tasks.add_task(
             email_sender.send_activation_email,
             str(new_user.email),
@@ -287,10 +284,7 @@ async def request_password_reset_token(
     await db.commit()
     await db.refresh(reset_token)
 
-    reset_link = (
-        f"http://127.0.0.1/api/v1/accounts/reset-password/complete/"  # noqa: E231
-        f"?email={user.email}&token={reset_token.token}"
-    )
+    reset_link = f"http://127.0.0.1/api/v1/accounts/reset_password?token={reset_token.token}"
     background_tasks.add_task(
         email_sender.send_password_reset_email,
         str(user.email),
