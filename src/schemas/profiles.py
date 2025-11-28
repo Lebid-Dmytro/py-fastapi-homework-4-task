@@ -50,6 +50,12 @@ class ProfileCreateRequestSchema(BaseModel):
             raise ValueError("Info field cannot be empty or contain only spaces.")
         return value.strip()
 
+    @field_validator("avatar")
+    @classmethod
+    def validate_avatar(cls, value: UploadFile) -> UploadFile:
+        validate_image(value)
+        return value
+
 
 class ProfileResponseSchema(BaseModel):
     id: int  # noqa: VNE003

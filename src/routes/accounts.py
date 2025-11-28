@@ -67,8 +67,8 @@ router = APIRouter()
 )
 async def register_user(
         user_data: UserRegistrationRequestSchema,
+        background_tasks: BackgroundTasks,
         db: AsyncSession = Depends(get_db),
-        background_tasks: BackgroundTasks = BackgroundTasks(),
         email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
 ) -> UserRegistrationResponseSchema:
     """
@@ -123,7 +123,6 @@ async def register_user(
         await db.commit()
         await db.refresh(new_user)
 
-        # Send activation email
         activation_link = (
             f"http://127.0.0.1/api/v1/accounts/activate/"  # noqa: E231
             f"?email={new_user.email}&token={activation_token.token}"
@@ -176,8 +175,8 @@ async def register_user(
 )
 async def activate_account(
         activation_data: UserActivationRequestSchema,
+        background_tasks: BackgroundTasks,
         db: AsyncSession = Depends(get_db),
-        background_tasks: BackgroundTasks = BackgroundTasks(),
         email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
 ) -> MessageResponseSchema:
     """
@@ -233,7 +232,6 @@ async def activate_account(
     await db.delete(token_record)
     await db.commit()
 
-    # Send activation complete email
     login_link = "http://127.0.0.1/api/v1/accounts/login/"
     background_tasks.add_task(
         email_sender.send_activation_complete_email,
@@ -256,8 +254,8 @@ async def activate_account(
 )
 async def request_password_reset_token(
         data: PasswordResetRequestSchema,
+        background_tasks: BackgroundTasks,
         db: AsyncSession = Depends(get_db),
-        background_tasks: BackgroundTasks = BackgroundTasks(),
         email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
 ) -> MessageResponseSchema:
     """
@@ -289,7 +287,6 @@ async def request_password_reset_token(
     await db.commit()
     await db.refresh(reset_token)
 
-    # Send password reset email
     reset_link = (
         f"http://127.0.0.1/api/v1/accounts/reset-password/complete/"  # noqa: E231
         f"?email={user.email}&token={reset_token.token}"
@@ -350,8 +347,8 @@ async def request_password_reset_token(
 )
 async def reset_password(
         data: PasswordResetCompleteRequestSchema,
+        background_tasks: BackgroundTasks,
         db: AsyncSession = Depends(get_db),
-        background_tasks: BackgroundTasks = BackgroundTasks(),
         email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
 ) -> MessageResponseSchema:
     """
@@ -415,7 +412,6 @@ async def reset_password(
             detail="An error occurred while resetting the password."
         )
 
-    # Send password reset complete email
     login_link = "http://127.0.0.1/api/v1/accounts/login/"
     background_tasks.add_task(
         email_sender.send_password_reset_complete_email,

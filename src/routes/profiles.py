@@ -142,8 +142,6 @@ async def create_user_profile(
             - 400 Bad Request if user already has a profile.
             - 500 Internal Server Error if avatar upload fails.
     """
-    # Token is already validated via dependency (verify_token)
-    # 1. Decode token to get user_id
     try:
         decoded_token = jwt_manager.decode_access_token(token)
         current_user_id = decoded_token.get("user_id")
@@ -153,7 +151,6 @@ async def create_user_profile(
             detail="Token has expired."
         )
 
-    # Validate input fields (after token validation for proper 422 responses)
     try:
         validate_name(first_name)
         validate_name(last_name)
@@ -167,7 +164,6 @@ async def create_user_profile(
             detail=str(e)
         )
 
-    # Validate avatar (after token validation for proper 422 responses)
     await avatar.seek(0)
     try:
         validate_image(avatar)
@@ -179,16 +175,6 @@ async def create_user_profile(
         )
     await avatar.seek(0)
 
-    try:
-        decoded_token = jwt_manager.decode_access_token(token)
-        current_user_id = decoded_token.get("user_id")
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired."
-        )
-
-    # 2. Authorization rules
     stmt = select(UserModel).options(joinedload(UserModel.group)).where(UserModel.id == current_user_id)
     result = await db.execute(stmt)
     current_user = result.scalars().first()
@@ -199,7 +185,6 @@ async def create_user_profile(
             detail="User not found or not active."
         )
 
-    # Check if user can create profile for this user_id
     is_admin = current_user.has_group(UserGroupEnum.ADMIN)
     if current_user_id != user_id and not is_admin:
         raise HTTPException(
@@ -207,7 +192,6 @@ async def create_user_profile(
             detail="You don't have permission to edit this profile."
         )
 
-    # 3. User existence and status
     stmt = select(UserModel).where(UserModel.id == user_id)
     result = await db.execute(stmt)
     user = result.scalars().first()
@@ -218,7 +202,6 @@ async def create_user_profile(
             detail="User not found or not active."
         )
 
-    # 4. Check for existing profile
     stmt = select(UserProfileModel).where(UserProfileModel.user_id == user_id)
     result = await db.execute(stmt)
     existing_profile = result.scalars().first()
@@ -229,7 +212,6 @@ async def create_user_profile(
             detail="User already has a profile."
         )
 
-    # 5. Avatar upload to S3 storage
     avatar_file_name = f"avatars/{user_id}_avatar.jpg"
     try:
         avatar_content = await avatar.read()
@@ -240,7 +222,6 @@ async def create_user_profile(
             detail="Failed to upload avatar. Please try again later."
         )
 
-    # 6. Profile creation and storage
     new_profile = UserProfileModel(
         user_id=user_id,
         first_name=first_name.lower(),
@@ -254,11 +235,7 @@ async def create_user_profile(
     await db.commit()
     await db.refresh(new_profile)
 
-    # Generate avatar URL
     avatar_url = await s3_client.get_file_url(avatar_file_name)
-
-    # Return response with avatar URL
-    # GenderEnum is a string enum, so .value returns the string value
     gender_value = new_profile.gender.value if new_profile.gender else None
 
     profile_response = ProfileResponseSchema(
