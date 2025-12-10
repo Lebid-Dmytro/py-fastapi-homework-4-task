@@ -25,7 +25,7 @@ echo "Fetching tags from the remote repository..."
 git fetch origin --tags || handle_error "Failed to fetch tags from the 'origin' remote."
 
 # Build and run Docker containers with Docker Compose v2
-sudo docker-compose -f docker-compose-prod.yml up -d --build || handle_error "Failed to build and run Docker containers using docker-compose-prod.yml."
+sudo docker-compose -f docker-compose.yml up -d --build || handle_error "Failed to build and run Docker containers using docker-compose.yml."
 
 # Print a success message upon successful deployment
 echo "Deployment completed successfully."
