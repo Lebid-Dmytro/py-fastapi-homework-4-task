@@ -1,3 +1,4 @@
+# Deployment script for automatic deployment
 #!/bin/bash
 
 # Exit the script immediately if any command exits with a non-zero status
