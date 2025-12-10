@@ -26,6 +26,9 @@ git fetch origin --tags || handle_error "Failed to fetch tags from the 'origin' 
 
 # Build and run Docker containers with Docker Compose v2
 sudo docker-compose -f docker-compose.yml up -d --build || handle_error "Failed to build and run Docker containers using docker-compose.yml."
+# Clean up Docker resources to free space
+echo "Cleaning up Docker resources..."
+sudo docker system prune -f || true
 
 # Print a success message upon successful deployment
 echo "Deployment completed successfully."
